@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: Ticket API
+  datasource:
+    url: jdbc:h2:file:./data/demo
+    username: admin
+    password: password
+    driverClassName: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create
+    database-platform: org.hibernate.dialect.H2Dialect
+  h2:
+    console.enabled: true
+zendesk-api:
+  url: "https://non2824.zendesk.com/api/v2"
+  email: "alanrodriguezalexandro@gmail.com"
+  token: ~
+  new-comment: "Ejemplo de nuevo comentario."
+
