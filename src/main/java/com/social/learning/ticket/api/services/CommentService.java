@@ -11,11 +11,11 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
@@ -35,29 +35,25 @@ public class CommentService {
 
   public List<CommentDto> listComments(Long ticketId) {
     log.debug("START listComments({})", ticketId);
-    List<CommentDto> comments =  webClientBuilder.build()
-        .get()
-        .uri( baseUrl + "/tickets/{ticketId}/comments.json", ticketId )
-        .headers( httpHeaders -> httpHeaders.addAll( getHttpHeaders( email, apiToken ) ) )
-        .retrieve()
-        .bodyToMono( new ParameterizedTypeReference<MetaDto>() {} )
-        .map( metaDto -> Optional.ofNullable( metaDto.getComments() ).orElse( Collections.emptyList() ) )
-        .block();
-    addComment( ticketId, newComment );
-    return comments;
+    Mono<List<CommentDto>> commentsMono = webClientBuilder.build()
+        .get().uri( baseUrl + "/tickets/{ticketId}/comments.json", ticketId )
+        .headers( httpHeaders -> httpHeaders.addAll( getHttpHeaders(email, apiToken) ) )
+        .retrieve().bodyToMono( MetaDto.class )
+        .map( metaDto -> Optional.ofNullable( metaDto.getComments() ).orElse( Collections.emptyList() ) );
+    commentsMono.subscribe( comments -> addComment( ticketId, newComment ).subscribe() );
+    return commentsMono.block();
   }
 
-  private void addComment(Long ticketId, String body) {
+  private Mono<Void> addComment(Long ticketId, String body) {
     log.debug("START addComment({},{})", ticketId, body);
     CommentDto commentDto = CommentDto.builder().body( body ).build();
     SlimTicketDto slimTicketDto = SlimTicketDto.builder().comment( commentDto ).build();
-    webClientBuilder.build()
-        .put()
-        .uri(baseUrl + "/tickets/{ticketId}.json", ticketId)
+    return webClientBuilder.build()
+        .put().uri( baseUrl + "/tickets/{ticketId}.json", ticketId )
         .headers( httpHeaders -> httpHeaders.addAll( getHttpHeaders( email, apiToken ) ) )
         .bodyValue( ResponseDto.builder().ticket( slimTicketDto ).build() )
         .retrieve().bodyToMono( SlimTicketDto.class )
-        .block();
+        .then();
   }
 
   private HttpHeaders getHttpHeaders(String email, String apiToken) {
